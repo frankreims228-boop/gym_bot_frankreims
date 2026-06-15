@@ -206,20 +206,19 @@ async def history(message: Message):
     query = message.text.replace("/history", "").strip()
 
     if query:
-        cursor.execute(""" ... """, (message.from_user.id,))
+        cursor.execute("""
             SELECT date, workout_num, exercise, weight, reps
             FROM workouts
             WHERE exercise LIKE ? AND user_id = ?
-            AND user_id = ?
             ORDER BY id
-        """, (f"%{query}%", message.from_user.id)
+        """, (f"%{query}%", message.from_user.id))
     else:
-        cursor.execute(""" ... """, (message.from_user.id,))
+        cursor.execute("""
             SELECT date, workout_num, exercise, weight, reps
             FROM workouts
             WHERE user_id = ?
             ORDER BY id
-        """)
+        """, (message.from_user.id,))
 
     rows = cursor.fetchall()
 
@@ -228,7 +227,6 @@ async def history(message: Message):
         return
 
     text = "📖 История тренировок:\n\n"
-
     current_date = None
 
     for date, workout_num, exercise, weight, reps in rows:
@@ -244,6 +242,7 @@ async def history(message: Message):
             await message.answer(chunk)
     else:
         await message.answer(text)
+        
 @dp.message(Command("delete_day"))
 async def delete_day(message: Message):
     date_text = message.text.replace("/delete_day", "").strip()
