@@ -517,19 +517,10 @@ async def finish_workout(message: Message):
 
 @dp.message(Command("pr"))
 async def personal_records(message: Message):
-    user_id = message.from_user.id
-
     cursor.execute("""
         SELECT exercise, weight, reps
         FROM workouts
-        WHERE user_id = ?
-    """, (user_id,))
-
-    cursor.execute("""
-        SELECT exercise, weight, reps
-        FROM workouts
-        WHERE user_id = ?
-    """, (user_id,))
+    """)
 
     rows = cursor.fetchall()
 
@@ -554,10 +545,6 @@ async def personal_records(message: Message):
                 "reps": reps,
                 "score": score
             }
-
-    if not records:
-        await message.answer("Пока не удалось посчитать PR.")
-        return
 
     text = "🏆 Твои личные рекорды:\n\n"
 
@@ -623,6 +610,20 @@ async def personal_records(message: Message):
             db.commit()
 
         await asyncio.sleep(60 * 60 * 12)
+
+@dp.message(Command("commands"))
+async def commands(message: Message):
+    await message.answer(
+        "📋 Команды:\n\n"
+        "/workout — выбрать тренировку\n"
+        "/add — добавить результат\n"
+        "/delete — удалить последнюю запись\n"
+        "/replace — заменить упражнение\n"
+        "/undo_replace — отменить замену упражнения\n"
+        "/finish — завершить тренировку\n"
+        "/pr — личные рекорды\n"
+        "/commands — список команд\n"
+    )
 async def main():
     await dp.start_polling(bot)
 
