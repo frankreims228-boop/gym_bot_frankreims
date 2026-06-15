@@ -172,27 +172,45 @@ async def today(message: Message):
 
 @dp.message(Command("history"))
 async def history(message: Message):
-    exercise = message.text.replace("/history", "").strip()
+    query = message.text.replace("/history", "").strip()
 
-    if not exercise:
-        await message.answer("Формат: /history Жим лёжа")
-        return
+    if query:
+        cursor.execute("""
+            SELECT date, workout_num, exercise, weight, reps
+            FROM workouts
+            WHERE exercise LIKE ?
+            ORDER BY id
+        """, (f"%{query}%",))
+    else:
+        cursor.execute("""
+            SELECT date, workout_num, exercise, weight, reps
+            FROM workouts
+            ORDER BY id
+        """)
 
-    cursor.execute(
-        "SELECT date, weight, reps FROM workouts WHERE exercise LIKE ? ORDER BY id",
-        (f"%{exercise}%",)
-    )
     rows = cursor.fetchall()
 
     if not rows:
-        await message.answer("Истории по этому упражнению пока нет.")
+        await message.answer("Истории пока нет.")
         return
 
-    text = f"История: {exercise}\n\n"
-    for date, weight, reps in rows:
-        text += f"{date} — {weight} кг × {reps}\n"
+    text = "📖 История тренировок:\n\n"
 
-    await message.answer(text)
+    current_date = None
+
+    for date, workout_num, exercise, weight, reps in rows:
+        if date != current_date:
+            current_date = date
+            text += f"\n📅 {date}\n"
+
+        text += f"Тренировка {workout_num}: {exercise} — {weight}×{reps}\n"
+
+    if len(text) > 4000:
+        chunks = [text[i:i+4000] for i in range(0, len(text), 4000)]
+        for chunk in chunks:
+            await message.answer(chunk)
+    else:
+        await message.answer(text)
 @dp.message(Command("delete_day"))
 async def delete_day(message: Message):
     date_text = message.text.replace("/delete_day", "").strip()
