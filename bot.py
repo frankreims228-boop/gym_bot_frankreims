@@ -385,7 +385,7 @@ async def send_workout(message: Message, workout_num: str):
                 FROM workouts
                 WHERE workout_num = ? AND exercise = ? AND date = ? AND user_id = ?
                 ORDER BY id
-            """, (workout_num, exercise, date, message.from_user.id)
+            """, (workout_num, exercise, date, message.from_user.id))
 
             rows = cursor.fetchall()
 
