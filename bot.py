@@ -807,6 +807,8 @@ async def choose_exercise(callback: CallbackQuery):
     await callback.answer()
 @dp.message()
 async def save_active_exercise(message: Message):
+    print("SAVE_ACTIVE_EXERCISE:", message.text)
+    print("ACTIVE:", active_exercise)
     user_id = message.from_user.id
 
     if user_id not in active_exercise:
