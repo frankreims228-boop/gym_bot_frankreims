@@ -796,10 +796,6 @@ async def choose_exercise(callback: CallbackQuery):
     )
 
     await callback.answer()
-    workout_num = callback.data.replace("workout_", "")
-
-    await callback.answer()
-    await send_workout(callback.message, workout_num)
 @dp.message()
 async def save_active_exercise(message: Message):
     user_id = message.from_user.id
