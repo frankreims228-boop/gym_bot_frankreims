@@ -226,19 +226,19 @@ async def history(message: Message):
     user_db, user_cursor = get_user_db(message.from_user.id)
 
     if query:
-        user_cursor.execute(
-            SELECT date, workout_num, exercise, weight, reps
-            FROM workouts
-            WHERE exercise LIKE ? 
-            ORDER BY id
-        """, (f"%{query}%", message.from_user.id))
-    else:
-        user_cursor.execute(
-            SELECT date, workout_num, exercise, weight, reps
-            FROM workouts
-            ORDER BY id
-        """, (message.from_user.id,))
-
+    user_cursor.execute("""
+        SELECT date, workout_num, exercise, weight, reps
+        FROM workouts
+        WHERE exercise LIKE ?
+        ORDER BY id
+    """, (f"%{query}%",))
+else:
+    user_cursor.execute("""
+        SELECT date, workout_num, exercise, weight, reps
+        FROM workouts
+        ORDER BY id
+    """)
+    
     rows = user_cursor.fetchall()
 
     if not rows:
