@@ -395,7 +395,20 @@ async def send_workout(message: Message, workout_num: str):
 
         text += "\n"
 
-    await message.answer(text)
+        buttons = []
+
+    for exercise in plan["exercises"].keys():
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"🔄 {exercise}",
+                callback_data=f"replace_menu|{workout_num}|{exercise}"
+            )
+        ])
+
+    await message.answer(
+        text,
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons)
+    )
 @dp.message(Command("delete"))
 async def delete_last(message: Message):
     cursor.execute("""
@@ -767,8 +780,6 @@ for exercise in plan["exercises"].keys():
             callback_data=f"replace_menu|{workout_num}|{exercise}"
         )
     ])
-
-await message.answer(text, reply_markup=InlineKeyboardMarkup(inline_keyboard=buttons))
 
 
 @dp.callback_query(lambda c: c.data.startswith("workout_"))
