@@ -633,6 +633,7 @@ async def commands(message: Message):
         "/delete — удалить последнюю запись\n"
         "/replace — заменить упражнение\n"
         "/undo_replace — отменить замену упражнения\n"
+        "/undo — отменить замену упражнения сегодня\n"
         "/finish — завершить тренировку\n"
         "/pr — личные рекорды\n"
         "/commands — список команд\n"
@@ -662,6 +663,29 @@ async def replace_today(message: Message):
     await message.answer(
         f"✅ Замена на сегодня:\n{old_exercise} → {new_exercise}"
     )
+    @dp.message(Command("undo"))
+async def undo_replace(message: Message):
+    cursor.execute("""
+        SELECT id, old_exercise
+        FROM temp_replacements
+        ORDER BY id DESC
+        LIMIT 1
+    """)
+
+    row = cursor.fetchone()
+
+    if not row:
+        await message.answer("Нечего отменять.")
+        return
+
+    cursor.execute(
+        "DELETE FROM temp_replacements WHERE id = ?",
+        (row[0],)
+    )
+
+    db.commit()
+
+    await message.answer(f"↩️ Вернул: {row[1]}")
 async def main():
     await dp.start_polling(bot)
 
