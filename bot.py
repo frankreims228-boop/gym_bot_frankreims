@@ -4,7 +4,7 @@ import sqlite3
 from datetime import datetime
 
 from aiogram import Bot, Dispatcher
-from aiogram.types import Message
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from aiogram.filters import Command
 from aiogram.types import FSInputFile
 
@@ -256,8 +256,7 @@ async def delete_day(message: Message):
 
     await message.answer(f"🗑 Удалено записей за {date_text}: {count}")
 @dp.message(Command("workout"))
-async def workout(message: Message):
-    workout_num = message.text.replace("/workout", "").strip()
+async def send_workout(message: Message, workout_num: str):
 
     if workout_num not in ["1", "2", "3", "4"]:
         await message.answer(
@@ -721,7 +720,33 @@ async def undo_replace(message: Message):
     db.commit()
 
     await message.answer(f"↩️ Вернул: {row[1]}")
+@dp.message(Command("workout"))
+async def workout_menu(message: Message):
+    text = message.text.replace("/workout", "").strip()
 
+    if not text:
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="1", callback_data="workout_1"),
+                    InlineKeyboardButton(text="2", callback_data="workout_2"),
+                    InlineKeyboardButton(text="3", callback_data="workout_3"),
+                    InlineKeyboardButton(text="4", callback_data="workout_4"),
+                ]
+            ]
+        )
+
+        await message.answer("Выбери тренировку:", reply_markup=keyboard)
+        return
+
+    await send_workout(message, text)
+
+
+@dp.callback_query(lambda c: c.data.startswith("workout_"))
+async def workout_button(callback: CallbackQuery):
+    workout_num = callback.data.replace("workout_", "")
+    await send_workout(callback.message, workout_num)
+    await callback.answer()
 async def main():
     await dp.start_polling(bot)
 
