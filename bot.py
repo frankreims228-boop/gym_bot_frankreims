@@ -256,6 +256,25 @@ async def delete_day(message: Message):
 
     await message.answer(f"🗑 Удалено записей за {date_text}: {count}")
 @dp.message(Command("workout"))
+async def workout_menu(message: Message):
+    text = message.text.replace("/workout", "").strip()
+
+    if not text:
+        keyboard = InlineKeyboardMarkup(
+            inline_keyboard=[
+                [
+                    InlineKeyboardButton(text="1", callback_data="workout_1"),
+                    InlineKeyboardButton(text="2", callback_data="workout_2"),
+                    InlineKeyboardButton(text="3", callback_data="workout_3"),
+                    InlineKeyboardButton(text="4", callback_data="workout_4"),
+                ]
+            ]
+        )
+
+        await message.answer("Выбери тренировку:", reply_markup=keyboard)
+        return
+
+    await send_workout(message, text)
 async def send_workout(message: Message, workout_num: str):
 
     if workout_num not in ["1", "2", "3", "4"]:
