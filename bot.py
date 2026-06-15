@@ -394,16 +394,15 @@ async def send_workout(message: Message, workout_num: str):
                 text += f"{item}\n"
 
         text += "\n"
+    buttons = []
 
-        buttons = []
-
-for exercise in plan["exercises"].keys():
-    buttons.append([
-        InlineKeyboardButton(
-            text=f"➕ {exercise}",
-            callback_data=f"add_exercise|{workout_num}|{exercise}"
-        )
-    ])
+    for exercise in plan["exercises"].keys():
+        buttons.append([
+            InlineKeyboardButton(
+                text=f"➕ {exercise}",
+                callback_data=f"add_exercise|{workout_num}|{exercise}"
+            )
+        ])
 
     await message.answer(
         text,
