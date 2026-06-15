@@ -38,7 +38,23 @@ dp = Dispatcher()
 
 db = sqlite3.connect("training.db")
 cursor = db.cursor()
+def get_user_db(user_id):
+    db = sqlite3.connect(f"training_{user_id}.db")
+    cursor = db.cursor()
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS workouts (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT,
+        workout_num TEXT,
+        exercise TEXT,
+        weight TEXT,
+        reps TEXT
+    )
+    """)
+
+    db.commit()
+    return db, cursor
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS workouts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -156,7 +172,9 @@ async def add_workout(message: Message):
             await message.answer("Сначала напиши название упражнения, потом подходы.")
             return
 
-        cursor.execute(
+        user_db, user_cursor = get_user_db(message.from_user.id)
+
+        user_cursor.execute(
             """
             INSERT INTO workouts (user_id, date, workout_num, exercise, weight, reps)
             VALUES (?, ?, ?, ?, ?)
@@ -167,7 +185,7 @@ async def add_workout(message: Message):
         saved += 1
         saved_text += f"{current_exercise} — {weight}×{reps}\n"
 
-    db.commit()
+    user_db.commit()
 
     if saved == 0:
         await message.answer("Не удалось сохранить записи. Проверь формат.")
@@ -183,12 +201,13 @@ async def add_workout(message: Message):
 @dp.message(Command("today"))
 async def today(message: Message):
     today_date = datetime.now().strftime("%d.%m.%Y")
+    user_db, user_cursor = get_user_db(message.from_user.id)
 
-    cursor.execute(
+    user_cursor.execute(
        "SELECT exercise, weight, reps FROM workouts WHERE date = ? AND user_id = ?",
         (today_date, message.from_user.id)
     )
-    rows = cursor.fetchall()
+    rows = user_cursor.fetchall()
 
     if not rows:
         await message.answer("За сегодня пока нет записей.")
@@ -204,23 +223,23 @@ async def today(message: Message):
 @dp.message(Command("history"))
 async def history(message: Message):
     query = message.text.replace("/history", "").strip()
+    user_db, user_cursor = get_user_db(message.from_user.id)
 
     if query:
-        cursor.execute("""
+        user_cursor.execute(
             SELECT date, workout_num, exercise, weight, reps
             FROM workouts
-            WHERE exercise LIKE ? AND user_id = ?
+            WHERE exercise LIKE ? 
             ORDER BY id
         """, (f"%{query}%", message.from_user.id))
     else:
-        cursor.execute("""
+        user_cursor.execute(
             SELECT date, workout_num, exercise, weight, reps
             FROM workouts
-            WHERE user_id = ?
             ORDER BY id
         """, (message.from_user.id,))
 
-    rows = cursor.fetchall()
+    rows = user_cursor.fetchall()
 
     if not rows:
         await message.answer("Истории пока нет.")
@@ -246,20 +265,21 @@ async def history(message: Message):
 @dp.message(Command("delete_day"))
 async def delete_day(message: Message):
     date_text = message.text.replace("/delete_day", "").strip()
+    user_db, user_cursor = get_user_db(message.from_user.id)
 
     if not date_text:
         await message.answer("Формат: /delete_day 15.06.2026")
         return
 
-    cursor.execute("SELECT COUNT(*) FROM workouts WHERE date = ? AND user_id = ?", (date_text, message.from_user.id))
-    count = cursor.fetchone()[0]
+    user_cursor.execute("SELECT COUNT(*) FROM workouts WHERE date = ?", (date_text,))
+    count = user_cursor.fetchone()[0]
 
     if count == 0:
         await message.answer(f"За {date_text} записей не найдено.")
         return
 
-    cursor.execute("DELETE FROM workouts WHERE date = ? AND user_id = ?", (date_text, message.from_user.id))
-    db.commit()
+    user_cursor.execute("DELETE FROM workouts WHERE date = ?", (date_text,))
+    user_db.commit()
 
     await message.answer(f"🗑 Удалено записей за {date_text}: {count}")
 @dp.message(Command("workout"))
@@ -283,6 +303,7 @@ async def workout_menu(message: Message):
 
     await send_workout(message, text)
 async def send_workout(message: Message, workout_num: str):
+ user_db, user_cursor = get_user_db(message.chat.id)
 
     if workout_num not in ["1", "2", "3", "4"]:
         await message.answer(
@@ -340,7 +361,7 @@ async def send_workout(message: Message, workout_num: str):
     for exercise, base_sets in plan["exercises"].items():
         original_exercise = exercise
 
-        cursor.execute("""
+        user_cursor.execute("""
             SELECT new_exercise
             FROM temp_replacements
             WHERE workout_num = ? AND old_exercise = ?
@@ -348,12 +369,12 @@ async def send_workout(message: Message, workout_num: str):
             LIMIT 1
         """, (workout_num, original_exercise.lower()))
 
-        temp = cursor.fetchone()
+        temp = user_cursor.fetchone()
 
         if temp:
             exercise = temp[0]
 
-        cursor.execute("""
+        user_cursor.execute("""
             SELECT new_exercise
             FROM replacements
             WHERE workout_num = ? AND old_exercise = ? AND is_active = 1
@@ -361,33 +382,33 @@ async def send_workout(message: Message, workout_num: str):
             LIMIT 1
         """, (workout_num, exercise))
 
-        replacement = cursor.fetchone()
+        replacement = user_cursor.fetchone()
 
         if replacement:
             exercise = replacement[0]
-        cursor.execute("""
+        user_cursor.execute("""
             SELECT date
             FROM workouts
-            WHERE workout_num = ? AND exercise = ? AND user_id = ?
+            WHERE workout_num = ? AND exercise = ?
             ORDER BY id DESC
             LIMIT 1
         """, (workout_num, exercise, message.chat.id))
 
-        last_date = cursor.fetchone()
+        last_date = user_cursor.fetchone()
 
         text += f"{exercise}\n"
 
         if last_date:
             date = last_date[0]
 
-            cursor.execute("""
+            user_cursor.execute("""
                 SELECT weight, reps
                 FROM workouts
-                WHERE workout_num = ? AND exercise = ? AND date = ? AND user_id = ?
+                WHERE workout_num = ? AND exercise = ? AND date = ?
                 ORDER BY id
             """, (workout_num, exercise, date, message.chat.id))
 
-            rows = cursor.fetchall()
+            rows = user_cursor.fetchall()
 
             text += f"Последний результат {date}:\n"
             for weight, reps in rows:
@@ -417,15 +438,15 @@ async def send_workout(message: Message, workout_num: str):
     )
 @dp.message(Command("delete"))
 async def delete_last(message: Message):
-    cursor.execute("""
+    user_db, user_cursor = get_user_db(message.from_user.id)
+    user_cursor.execute
         SELECT id, exercise, weight, reps, date
         FROM workouts
-        WHERE user_id = ?
         ORDER BY id DESC
         LIMIT 1
     """, (message.from_user.id,))
 
-    row = cursor.fetchone()
+    row = user_cursor.fetchone()
 
     if not row:
         await message.answer("Нет записей для удаления.")
@@ -433,10 +454,6 @@ async def delete_last(message: Message):
 
     workout_id, exercise, weight, reps, date = row
 
-    cursor.execute(
-        "DELETE FROM workouts WHERE id = ?",
-        (row[0],)
-    )
     db.commit()
 
     await message.answer(
@@ -564,6 +581,7 @@ text = (
 @dp.message(Command("finish"))
 async def finish_workout(message: Message):
     workout_num = message.text.replace("/finish", "").strip()
+    user_db, user_cursor = get_user_db(message.from_user.id)
 
     if workout_num not in ["1", "2", "3", "4"]:
         await message.answer("Формат: /finish 1")
@@ -571,14 +589,14 @@ async def finish_workout(message: Message):
 
     today = datetime.now().strftime("%d.%m.%Y")
 
-    cursor.execute("""
+    user_cursor.execute("""
         SELECT exercise, weight, reps
         FROM workouts
         WHERE workout_num = ? AND date = ?
         ORDER BY id
     """, (workout_num, today))
 
-    rows = cursor.fetchall()
+    rows = user_cursor.fetchall()
 
     if not rows:
         await message.answer(f"Сегодня для тренировки {workout_num} ещё нет записей.")
@@ -603,13 +621,13 @@ async def finish_workout(message: Message):
 
 @dp.message(Command("pr"))
 async def personal_records(message: Message):
+    user_db, user_cursor = get_user_db(message.from_user.id)
     cursor.execute("""
         SELECT exercise, weight, reps
         FROM workouts
-        WHERE user_id = ?
     """, (message.from_user.id,))
 
-    rows = cursor.fetchall()
+    rows = user_cursor.fetchall()
 
     if not rows:
         await message.answer("Пока нет записей для PR.")
@@ -644,23 +662,22 @@ async def personal_records(message: Message):
             today = datetime.now()
             today_text = today.strftime("%d.%m.%Y")
 
-        cursor.execute("""
+        user_cursor.execute("""
             SELECT DISTINCT user_id
             FROM workouts
             WHERE user_id IS NOT NULL
         """)
-        users = cursor.fetchall()
+        users = user_cursor.fetchall()
 
         for (user_id,) in users:
             cursor.execute("""
                 SELECT date
                 FROM workouts
-                WHERE user_id = ?
                 ORDER BY id DESC
                 LIMIT 1
             """, (user_id,))
 
-            row = cursor.fetchone()
+            row = user_cursor.fetchone()
 
             if not row:
                 continue
@@ -671,13 +688,12 @@ async def personal_records(message: Message):
             if days_missed < 3:
                 continue
 
-            cursor.execute("""
+            user_cursor.execute("""
                 SELECT last_reminder_date
                 FROM reminder_log
-                WHERE user_id = ?
             """, (user_id,))
 
-            reminder = cursor.fetchone()
+            reminder = user_cursor.fetchone()
 
             if reminder and reminder[0] == today_text:
                 continue
@@ -830,8 +846,10 @@ async def save_active_exercise(message: Message):
             continue
 
         weight, reps = line.split("x", 1)
+        
+        user_db, user_cursor = get_user_db(message.from_user.id)
 
-        cursor.execute("""
+        user_cursor.execute("""
             INSERT INTO workouts (user_id, date, workout_num, exercise, weight, reps)
             VALUES (?, ?, ?, ?, ?, ?)
         """, (message.from_user.id, today, workout_num, exercise, weight, reps))
@@ -839,7 +857,7 @@ async def save_active_exercise(message: Message):
         saved += 1
         saved_text += f"{exercise} — {weight}×{reps}\n"
 
-    db.commit()
+    user_db.commit()
 
     if saved == 0:
         await message.answer("Не понял формат. Пиши так: 60x10")
