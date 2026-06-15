@@ -778,6 +778,72 @@ async def workout_button(callback: CallbackQuery):
     await callback.answer()
     await send_workout(callback.message, workout_num)
 
+@dp.callback_query(lambda c: c.data.startswith("replace_menu|"))
+async def replace_menu(callback: CallbackQuery):
+    _, workout_num, old_exercise = callback.data.split("|", 2)
+
+    variants = {
+        "Присед": ["Жим платформы", "Болгарские приседы", "Выпады"],
+        "Жим платформы": ["Присед", "Болгарские приседы", "Выпады"],
+        "Разведение гантелей": ["Тренажёр на среднюю дельту", "Махи в стороны"],
+        "Жим штанги сидя": ["Жим гантелей сидя", "Жим в тренажёре"],
+
+        "Скамья Скотта": ["Сгибания на блоке", "Подъём гантелей на бицепс", "Молотки"],
+        "Подъём гантелей на бицепс": ["Скамья Скотта", "Сгибания на блоке", "Молотки"],
+        "Молотки": ["Скамья Скотта", "Сгибания на блоке"],
+
+        "Жим лёжа": ["Жим в хаммере", "Жим гантелей лёжа"],
+        "Жим гантелей лёжа": ["Жим лёжа", "Жим в хаммере"],
+
+        "Тяга верхнего блока": ["Подтягивания", "Тяга в наклоне"],
+        "Подтягивания": ["Тяга верхнего блока", "Тяга в наклоне"],
+        "Тяга в наклоне": ["Тяга верхнего блока", "Подтягивания"],
+    }
+
+    options = variants.get(old_exercise)
+
+    if not options:
+        await callback.answer("Для этого упражнения пока нет замен", show_alert=True)
+        return
+
+    keyboard = []
+
+    for new_exercise in options:
+        keyboard.append([
+            InlineKeyboardButton(
+                text=new_exercise,
+                callback_data=f"replace_today_btn|{workout_num}|{old_exercise}|{new_exercise}"
+            )
+        ])
+
+    await callback.message.answer(
+        f"Чем заменить?\n\n{old_exercise}",
+        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
+    )
+
+    await callback.answer()
+
+
+@dp.callback_query(lambda c: c.data.startswith("replace_today_btn|"))
+async def replace_today_btn(callback: CallbackQuery):
+    _, workout_num, old_exercise, new_exercise = callback.data.split("|", 3)
+
+    cursor.execute("""
+        INSERT INTO temp_replacements
+        (workout_num, old_exercise, new_exercise)
+        VALUES (?, ?, ?)
+    """, (workout_num, old_exercise.lower(), new_exercise))
+
+    db.commit()
+
+    await callback.message.answer(
+        f"✅ На сегодня заменено:\n\n"
+        f"{old_exercise} → {new_exercise}\n\n"
+        f"Отменить: /undo"
+    )
+
+    await callback.answer()
+
 async def main():
     await dp.start_polling(bot)
 
