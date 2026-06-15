@@ -513,7 +513,10 @@ async def finish_workout(message: Message):
     )
 
     await message.answer(text)
-    @dp.message(Command("pr"))
+
+
+@dp.message(Command("pr"))
+async def personal_records(message: Message):
 async def personal_records(message: Message):
     user_id = message.from_user.id
 
