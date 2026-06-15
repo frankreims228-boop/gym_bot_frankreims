@@ -6,6 +6,7 @@ from datetime import datetime
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message
 from aiogram.filters import Command
+from aiogram.types import FSInputFile
 
 TOKEN = "8616065366:AAG4iuYv0-cytNUtOlu5WW-rw99lDZSvjbM"
 
@@ -686,6 +687,54 @@ async def undo_replace(message: Message):
     db.commit()
 
     await message.answer(f"↩️ Вернул: {row[1]}")
+
+@dp.message(Command("export"))
+async def export_history(message: Message):
+
+    text = "ИСТОРИЯ ТРЕНИРОВОК\n\n"
+
+    for workout_num, plan in WORKOUTS.items():
+
+        text += f"\n{'='*30}\n"
+        text += f"ТРЕНИРОВКА {workout_num}\n"
+        text += f"{'='*30}\n\n"
+
+        for exercise, base_sets in plan["exercises"].items():
+
+            text += f"{exercise}\n"
+
+            text += "Базовые результаты:\n"
+            for s in base_sets:
+                text += f"{s}\n"
+
+            text += "\nВсе тренировки:\n"
+
+            cursor.execute("""
+                SELECT date, weight, reps
+                FROM workouts
+                WHERE exercise = ?
+                ORDER BY id
+            """, (exercise,))
+
+            rows = cursor.fetchall()
+
+            if rows:
+                for date, weight, reps in rows:
+                    text += f"{date} - {weight}x{reps}\n"
+            else:
+                text += "Нет записей\n"
+
+            text += "\n"
+
+    with open("history.txt", "w", encoding="utf-8") as f:
+        f.write(text)
+
+    file = FSInputFile("history.txt")
+
+    await message.answer_document(
+        file,
+        caption="📊 История тренировок"
+    )
 async def main():
     await dp.start_polling(bot)
 
