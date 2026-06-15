@@ -773,6 +773,12 @@ async def workout_menu(message: Message):
 
 @dp.callback_query(lambda c: c.data.startswith("workout_"))
 async def workout_button(callback: CallbackQuery):
+    workout_num = callback.data.replace("workout_", "")
+
+    await callback.answer()
+    await send_workout(callback.message, workout_num)
+
+
 @dp.callback_query(lambda c: c.data.startswith("add_exercise|"))
 async def choose_exercise(callback: CallbackQuery):
     _, workout_num, exercise = callback.data.split("|", 2)
