@@ -30,6 +30,13 @@ try:
     db.commit()
 except sqlite3.OperationalError:
     pass
+    cursor.execute("""
+CREATE TABLE IF NOT EXISTS reminder_log (
+    user_id INTEGER PRIMARY KEY,
+    last_reminder_date TEXT
+)
+""")
+db.commit()
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS replacements (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -428,38 +435,37 @@ async def undo_replace(message: Message):
         f"Тренировка {workout_num}\n"
         f"{new_exercise} снова заменено на {old_exercise}"
     )
-@dp.message(Command("commands"))
-async def commands(message: Message):
-    await message.answer(
-        "📋 Команды бота\n\n"
+text = (
+    "📋 Доступные команды:\n\n"
 
-        "🏋️ Тренировки:\n"
-        "/workout 1\n"
-        "/workout 2\n"
-        "/workout 3\n"
-        "/workout 4\n\n"
+    "🏋️ Тренировки:\n"
+    "/workout 1\n"
+    "/workout 2\n"
+    "/workout 3\n"
+    "/workout 4\n\n"
 
-        "➕ Добавить результат:\n"
-        "/add 1 Жим лёжа 60 12\n\n"
+    "➕ Добавление результатов:\n"
+    "/add 1 жим лежа 60x10\n\n"
 
-        "🗑 Удалить последнюю запись:\n"
-        "/delete\n\n"
+    "❌ Удаление:\n"
+    "/delete\n\n"
 
-        "📅 Показать записи за сегодня:\n"
-        "/today\n\n"
+    "📅 Сегодня:\n"
+    "/today\n\n"
 
-        "📈 История упражнения:\n"
-        "/history Жим лёжа\n\n"
+    "📈 История упражнения:\n"
+    "/history жим лежа\n\n"
 
-        "🔄 Заменить упражнение:\n"
-        "/replace 1 Скамья Скотта | Подъем гантелей на бицепс\n\n"
+    "🔄 Замена упражнения:\n"
+    "/replace 1 Скамья Скотта Молотки\n"
+    "/undo_replace\n\n"
 
-        "↩️ Отменить последнюю замену:\n"
-        "/undo_replace\n\n"
+    "🏁 Завершить тренировку:\n"
+    "/finish\n\n"
 
-        "ℹ️ Показать список команд:\n"
-        "/commands"
-    )
+    "🏆 Личные рекорды:\n"
+    "/pr"
+)
 @dp.message(Command("finish"))
 async def finish_workout(message: Message):
     workout_num = message.text.replace("/finish", "").strip()
@@ -507,7 +513,110 @@ async def finish_workout(message: Message):
     )
 
     await message.answer(text)
+    @dp.message(Command("pr"))
+async def personal_records(message: Message):
+    user_id = message.from_user.id
+
+    cursor.execute("""
+        SELECT exercise, weight, reps
+        FROM workouts
+        WHERE user_id = ?
+    """, (user_id,))
+
+    rows = cursor.fetchall()
+
+    if not rows:
+        await message.answer("Пока нет записей для PR.")
+        return
+
+    records = {}
+
+    for exercise, weight, reps in rows:
+        try:
+            weight_num = float(str(weight).replace(",", "."))
+            reps_num = int(reps)
+        except ValueError:
+            continue
+
+        score = weight_num * reps_num
+
+        if exercise not in records or score > records[exercise]["score"]:
+            records[exercise] = {
+                "weight": weight,
+                "reps": reps,
+                "score": score
+            }
+
+    if not records:
+        await message.answer("Пока не удалось посчитать PR.")
+        return
+
+    text = "🏆 Твои личные рекорды:\n\n"
+
+    for exercise, data in records.items():
+        text += f"{exercise}: {data['weight']}×{data['reps']}\n"
+
+    await message.answer(text)
+    async def check_missed_workouts():
+    while True:
+        today = datetime.now()
+        today_text = today.strftime("%d.%m.%Y")
+
+        cursor.execute("""
+            SELECT DISTINCT user_id
+            FROM workouts
+            WHERE user_id IS NOT NULL
+        """)
+        users = cursor.fetchall()
+
+        for (user_id,) in users:
+            cursor.execute("""
+                SELECT date
+                FROM workouts
+                WHERE user_id = ?
+                ORDER BY id DESC
+                LIMIT 1
+            """, (user_id,))
+
+            row = cursor.fetchone()
+
+            if not row:
+                continue
+
+            last_date = datetime.strptime(row[0], "%d.%m.%Y")
+            days_missed = (today - last_date).days
+
+            if days_missed < 3:
+                continue
+
+            cursor.execute("""
+                SELECT last_reminder_date
+                FROM reminder_log
+                WHERE user_id = ?
+            """, (user_id,))
+
+            reminder = cursor.fetchone()
+
+            if reminder and reminder[0] == today_text:
+                continue
+
+            await bot.send_message(
+                user_id,
+                f"ТЫ ГДЕ ПРОПАЛ, ЧЕМПИОН? 🐯\n\n"
+                f"Последняя тренировка была {days_missed} дня назад.\n"
+                f"Пора возвращаться в зал 💪"
+            )
+
+            cursor.execute("""
+                INSERT OR REPLACE INTO reminder_log (user_id, last_reminder_date)
+                VALUES (?, ?)
+            """, (user_id, today_text))
+
+            db.commit()
+
+        await asyncio.sleep(60 * 60 * 12)
 async def main():
+    asyncio.create_task(check_missed_workouts())
     await dp.start_polling(bot)
 
 
