@@ -83,13 +83,12 @@ async def add_workout(message: Message):
 
     if not first_parts:
         await message.answer(
-            "Формат одной записи:\n"
-            "/add 1 Жим лёжа 80 8\n\n"
-            "Формат нескольких записей:\n"
+            "Формат:\n\n"
             "/add 1\n"
-            "Жим лёжа 80 8\n"
-            "Жим лёжа 80 7\n"
-            "Жим гантелей лёжа 20 12"
+            "Жим лёжа 60x10\n"
+            "60x8\n"
+            "60x6\n"
+            "70x2"
         )
         return
 
@@ -102,47 +101,40 @@ async def add_workout(message: Message):
     today = datetime.now().strftime("%d.%m.%Y")
     saved = 0
     saved_text = ""
+    current_exercise = None
 
-    if len(lines) == 1:
-        if len(first_parts) < 4:
-            await message.answer("Формат: /add 1 Жим лёжа 80 8")
+    for line in lines[1:]:
+        line = line.strip()
+
+        if not line:
+            continue
+
+        parts = line.split()
+        last_part = parts[-1].lower().replace("х", "x")
+
+        if "x" not in last_part:
+            current_exercise = line
+            continue
+
+        weight, reps = last_part.split("x", 1)
+
+        if len(parts) > 1:
+            current_exercise = " ".join(parts[:-1])
+
+        if not current_exercise:
+            await message.answer("Сначала напиши название упражнения, потом подходы.")
             return
 
-        exercise = " ".join(first_parts[1:-2])
-        weight = first_parts[-2]
-        reps = first_parts[-1]
-
         cursor.execute(
-            "INSERT INTO workouts (date, workout_num, exercise, weight, reps) VALUES (?, ?, ?, ?, ?)",
-            (today, workout_num, exercise, weight, reps)
+            """
+            INSERT INTO workouts (date, workout_num, exercise, weight, reps)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (today, workout_num, current_exercise, weight, reps)
         )
 
-        saved = 1
-        saved_text += f"{exercise} — {weight}×{reps}\n"
-
-    else:
-        for line in lines[1:]:
-            line = line.strip()
-
-            if not line:
-                continue
-
-            parts = line.split()
-
-            if len(parts) < 3:
-                continue
-
-            exercise = " ".join(parts[:-2])
-            weight = parts[-2]
-            reps = parts[-1]
-
-            cursor.execute(
-                "INSERT INTO workouts (date, workout_num, exercise, weight, reps) VALUES (?, ?, ?, ?, ?)",
-                (today, workout_num, exercise, weight, reps)
-            )
-
-            saved += 1
-            saved_text += f"{exercise} — {weight}×{reps}\n"
+        saved += 1
+        saved_text += f"{current_exercise} — {weight}×{reps}\n"
 
     db.commit()
 
@@ -156,7 +148,6 @@ async def add_workout(message: Message):
         f"{today}\n\n"
         f"{saved_text}"
     )
-
 
 @dp.message(Command("today"))
 async def today(message: Message):
@@ -688,53 +679,6 @@ async def undo_replace(message: Message):
 
     await message.answer(f"↩️ Вернул: {row[1]}")
 
-@dp.message(Command("export"))
-async def export_history(message: Message):
-
-    text = "ИСТОРИЯ ТРЕНИРОВОК\n\n"
-
-    for workout_num, plan in WORKOUTS.items():
-
-        text += f"\n{'='*30}\n"
-        text += f"ТРЕНИРОВКА {workout_num}\n"
-        text += f"{'='*30}\n\n"
-
-        for exercise, base_sets in plan["exercises"].items():
-
-            text += f"{exercise}\n"
-
-            text += "Базовые результаты:\n"
-            for s in base_sets:
-                text += f"{s}\n"
-
-            text += "\nВсе тренировки:\n"
-
-            cursor.execute("""
-                SELECT date, weight, reps
-                FROM workouts
-                WHERE exercise = ?
-                ORDER BY id
-            """, (exercise,))
-
-            rows = cursor.fetchall()
-
-            if rows:
-                for date, weight, reps in rows:
-                    text += f"{date} - {weight}x{reps}\n"
-            else:
-                text += "Нет записей\n"
-
-            text += "\n"
-
-    with open("history.txt", "w", encoding="utf-8") as f:
-        f.write(text)
-
-    file = FSInputFile("history.txt")
-
-    await message.answer_document(
-        file,
-        caption="📊 История тренировок"
-    )
 async def main():
     await dp.start_polling(bot)
 
