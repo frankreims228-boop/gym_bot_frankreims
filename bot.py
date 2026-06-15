@@ -567,8 +567,8 @@ async def personal_records(message: Message):
     await message.answer(text)
     async def check_missed_workouts():
         while True:
-        today = datetime.now()
-        today_text = today.strftime("%d.%m.%Y")
+            today = datetime.now()
+            today_text = today.strftime("%d.%m.%Y")
 
         cursor.execute("""
             SELECT DISTINCT user_id
