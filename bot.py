@@ -8,6 +8,29 @@ from aiogram.types import Message
 from aiogram.filters import Command
 from aiogram.types import FSInputFile
 
+def normalize_exercise(name):
+    aliases = {
+        "жим": "Жим лёжа",
+        "жим лежа": "Жим лёжа",
+        "жим лёжа": "Жим лёжа",
+
+        "скотт": "Скамья Скотта",
+        "скамья скотта": "Скамья Скотта",
+
+        "верхний блок": "Тяга верхнего блока",
+        "тяга верхнего блока": "Тяга верхнего блока",
+
+        "гантели лежа": "Жим гантелей лёжа",
+        "жим гантелей": "Жим гантелей лёжа",
+
+        "брусья": "Брусья",
+        "подтягивания": "Подтягивания",
+        "турник": "Подтягивания",
+    }
+
+    name = name.lower().strip().replace("ё", "е")
+    return aliases.get(name, name.title())
+
 TOKEN = "8616065366:AAG4iuYv0-cytNUtOlu5WW-rw99lDZSvjbM"
 
 bot = Bot(token=TOKEN)
@@ -114,12 +137,14 @@ async def add_workout(message: Message):
 
         if "x" not in last_part:
             current_exercise = line
+            current_exercise = normalize_exercise(current_exercise)
             continue
 
         weight, reps = last_part.split("x", 1)
 
         if len(parts) > 1:
             current_exercise = " ".join(parts[:-1])
+            current_exercise = normalize_exercise(current_exercise)
 
         if not current_exercise:
             await message.answer("Сначала напиши название упражнения, потом подходы.")
