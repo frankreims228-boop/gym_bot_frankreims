@@ -480,13 +480,7 @@ async def finish_workout(message: Message):
     workout_num = message.text.replace("/finish", "").strip()
 
     if workout_num not in ["1", "2", "3", "4"]:
-        await message.answer(
-            "Формат:\n"
-            "/finish 1\n"
-            "/finish 2\n"
-            "/finish 3\n"
-            "/finish 4"
-        )
+        await message.answer("Формат: /finish 1")
         return
 
     today = datetime.now().strftime("%d.%m.%Y")
@@ -501,9 +495,7 @@ async def finish_workout(message: Message):
     rows = cursor.fetchall()
 
     if not rows:
-        await message.answer(
-            f"Сегодня для тренировки {workout_num} ещё нет записей."
-        )
+        await message.answer(f"Сегодня для тренировки {workout_num} ещё нет записей.")
         return
 
     text = f"🏁 Тренировка {workout_num} завершена!\n\n"
@@ -520,13 +512,8 @@ async def finish_workout(message: Message):
         "ТУПО ДУШУ ТВОЮ ЦЕЛОВАЛ 😘\n"
         "КЛАСНО ПОТРЕНИЛ МАЛЬЧИК МОЙ 💪😎"
     )
-cursor.execute(
-    "DELETE FROM temp_replacements WHERE workout_num = ?",
-    (workout_num,)
-)
-db.commit()
-    await message.answer(text)
 
+    await message.answer(text)
 
 @dp.message(Command("pr"))
 async def personal_records(message: Message):
