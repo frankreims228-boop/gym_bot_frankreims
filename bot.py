@@ -54,11 +54,12 @@ try:
     db.commit()
 except sqlite3.OperationalError:
     pass
- try:
+
+try:
     cursor.execute("ALTER TABLE workouts ADD COLUMN user_id INTEGER")
     db.commit()
 except sqlite3.OperationalError:
-    pass   
+    pass
     cursor.execute("""
 CREATE TABLE IF NOT EXISTS reminder_log (
     user_id INTEGER PRIMARY KEY,
