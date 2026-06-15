@@ -517,8 +517,13 @@ async def finish_workout(message: Message):
 
 @dp.message(Command("pr"))
 async def personal_records(message: Message):
-async def personal_records(message: Message):
     user_id = message.from_user.id
+
+    cursor.execute("""
+        SELECT exercise, weight, reps
+        FROM workouts
+        WHERE user_id = ?
+    """, (user_id,))
 
     cursor.execute("""
         SELECT exercise, weight, reps
