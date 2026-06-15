@@ -771,6 +771,13 @@ async def workout_menu(message: Message):
         await message.answer("Выбери тренировку:", reply_markup=keyboard)
         return
 
+@dp.callback_query(lambda c: c.data.startswith("workout_"))
+async def workout_button(callback: CallbackQuery):
+    workout_num = callback.data.replace("workout_", "")
+
+    await callback.answer()
+    await send_workout(callback.message, workout_num)
+
 async def main():
     await dp.start_polling(bot)
 
