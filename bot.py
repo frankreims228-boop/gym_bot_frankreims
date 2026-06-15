@@ -282,6 +282,19 @@ async def workout(message: Message):
 
         cursor.execute("""
             SELECT new_exercise
+            FROM temp_replacements
+            WHERE workout_num = ? AND old_exercise = ?
+            ORDER BY id DESC
+            LIMIT 1
+        """, (workout_num, original_exercise.lower()))
+
+        temp = cursor.fetchone()
+
+        if temp:
+            exercise = temp[0]
+
+        cursor.execute("""
+            SELECT new_exercise
             FROM replacements
             WHERE workout_num = ? AND old_exercise = ? AND is_active = 1
             ORDER BY id DESC
@@ -627,27 +640,28 @@ async def commands(message: Message):
 
 @dp.message(Command("replace_today"))
 async def replace_today(message: Message):
-    try:
-        _, workout_num, old_exercise, new_exercise = message.text.split(" | ")
+    text = message.text.replace("/replace_today", "").strip()
+    parts = [p.strip() for p in text.split("|")]
 
-        cursor.execute("""
-            INSERT INTO temp_replacements
-            (workout_num, old_exercise, new_exercise)
-            VALUES (?, ?, ?)
-        """, (workout_num, old_exercise, new_exercise))
-
-        db.commit()
-
+    if len(parts) != 3:
         await message.answer(
-            f"🔄 На сегодня заменено:\n"
-            f"{old_exercise} → {new_exercise}"
+            "Формат:\n"
+            "/replace_today 1 | Скамья Скотта | Сгибания на блоке"
         )
+        return
 
-    except:
-        await message.answer(
-            "Пример:\n"
-            "/replace_today 1 | Подъем гантелей на бицепс | Сгибания на блоке"
-        )
+    workout_num, old_exercise, new_exercise = parts
+
+    cursor.execute("""
+        INSERT INTO temp_replacements (workout_num, old_exercise, new_exercise)
+        VALUES (?, ?, ?)
+    """, (workout_num, old_exercise.lower(), new_exercise))
+
+    db.commit()
+
+    await message.answer(
+        f"✅ Замена на сегодня:\n{old_exercise} → {new_exercise}"
+    )
 async def main():
     await dp.start_polling(bot)
 
