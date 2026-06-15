@@ -185,7 +185,7 @@ async def today(message: Message):
     today_date = datetime.now().strftime("%d.%m.%Y")
 
     cursor.execute(
-        "SELECT exercise, weight, reps FROM workouts WHERE date = ? AND user_id = ?,
+       "SELECT exercise, weight, reps FROM workouts WHERE date = ? AND user_id = ?",
         (today_date, message.from_user.id)
     )
     rows = cursor.fetchall()
