@@ -831,7 +831,7 @@ async def save_active_exercise(message: Message):
 
         cursor.execute("""
             INSERT INTO workouts (user_id, date, workout_num, exercise, weight, reps)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?)
         """, (message.from_user.id, today, workout_num, exercise, weight, reps))
 
         saved += 1
