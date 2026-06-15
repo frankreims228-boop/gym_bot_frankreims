@@ -371,7 +371,7 @@ async def send_workout(message: Message, workout_num: str):
             WHERE workout_num = ? AND exercise = ? AND user_id = ?
             ORDER BY id DESC
             LIMIT 1
-        """, (workout_num, exercise, message.from_user.id))
+        """, (workout_num, exercise, message.chat.id))
 
         last_date = cursor.fetchone()
 
@@ -385,7 +385,7 @@ async def send_workout(message: Message, workout_num: str):
                 FROM workouts
                 WHERE workout_num = ? AND exercise = ? AND date = ? AND user_id = ?
                 ORDER BY id
-            """, (workout_num, exercise, date, message.from_user.id))
+            """, (workout_num, exercise, date, message.chat.id))
 
             rows = cursor.fetchall()
 
