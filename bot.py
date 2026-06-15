@@ -663,7 +663,7 @@ async def replace_today(message: Message):
     await message.answer(
         f"✅ Замена на сегодня:\n{old_exercise} → {new_exercise}"
     )
-    @dp.message(Command("undo"))
+@dp.message(Command("undo"))
 async def undo_replace(message: Message):
     cursor.execute("""
         SELECT id, old_exercise
