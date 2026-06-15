@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS deleted_replacements (
     new_exercise TEXT
 )
 """)
-
+active_exercise = {}
 db.commit()
 @dp.message(Command("start"))
 async def start(message: Message):
@@ -397,13 +397,13 @@ async def send_workout(message: Message, workout_num: str):
 
         buttons = []
 
-    for exercise in plan["exercises"].keys():
-        buttons.append([
-            InlineKeyboardButton(
-                text=f"🔄 {exercise}",
-                callback_data=f"replace_menu|{workout_num}|{exercise}"
-            )
-        ])
+for exercise in plan["exercises"].keys():
+    buttons.append([
+        InlineKeyboardButton(
+            text=f"➕ {exercise}",
+            callback_data=f"add_exercise|{workout_num}|{exercise}"
+        )
+    ])
 
     await message.answer(
         text,
@@ -773,76 +773,72 @@ async def workout_menu(message: Message):
 
 @dp.callback_query(lambda c: c.data.startswith("workout_"))
 async def workout_button(callback: CallbackQuery):
+@dp.callback_query(lambda c: c.data.startswith("add_exercise|"))
+async def choose_exercise(callback: CallbackQuery):
+    _, workout_num, exercise = callback.data.split("|", 2)
+
+    active_exercise[callback.from_user.id] = {
+        "workout_num": workout_num,
+        "exercise": exercise
+    }
+
+    await callback.message.answer(
+        f"✍️ Вводи результаты для:\n\n{exercise}\n\n"
+        f"Пример:\n"
+        f"60x10\n"
+        f"60x8\n"
+        f"70x5"
+    )
+
+    await callback.answer()
     workout_num = callback.data.replace("workout_", "")
 
     await callback.answer()
     await send_workout(callback.message, workout_num)
+@dp.message()
+async def save_active_exercise(message: Message):
+    user_id = message.from_user.id
 
-@dp.callback_query(lambda c: c.data.startswith("replace_menu|"))
-async def replace_menu(callback: CallbackQuery):
-    _, workout_num, old_exercise = callback.data.split("|", 2)
-
-    variants = {
-        "Присед": ["Жим платформы", "Болгарские приседы", "Выпады"],
-        "Жим платформы": ["Присед", "Болгарские приседы", "Выпады"],
-        "Разведение гантелей": ["Тренажёр на среднюю дельту", "Махи в стороны"],
-        "Жим штанги сидя": ["Жим гантелей сидя", "Жим в тренажёре"],
-
-        "Скамья Скотта": ["Сгибания на блоке", "Подъём гантелей на бицепс", "Молотки"],
-        "Подъём гантелей на бицепс": ["Скамья Скотта", "Сгибания на блоке", "Молотки"],
-        "Молотки": ["Скамья Скотта", "Сгибания на блоке"],
-
-        "Жим лёжа": ["Жим в хаммере", "Жим гантелей лёжа"],
-        "Жим гантелей лёжа": ["Жим лёжа", "Жим в хаммере"],
-
-        "Тяга верхнего блока": ["Подтягивания", "Тяга в наклоне"],
-        "Подтягивания": ["Тяга верхнего блока", "Тяга в наклоне"],
-        "Тяга в наклоне": ["Тяга верхнего блока", "Подтягивания"],
-    }
-
-    options = variants.get(old_exercise)
-
-    if not options:
-        await callback.answer("Для этого упражнения пока нет замен", show_alert=True)
+    if user_id not in active_exercise:
         return
 
-    keyboard = []
+    data = active_exercise[user_id]
+    workout_num = data["workout_num"]
+    exercise = data["exercise"]
+    today = datetime.now().strftime("%d.%m.%Y")
 
-    for new_exercise in options:
-        keyboard.append([
-            InlineKeyboardButton(
-                text=new_exercise,
-                callback_data=f"replace_today_btn|{workout_num}|{old_exercise}|{new_exercise}"
-            )
-        ])
+    lines = message.text.split("\n")
+    saved = 0
+    saved_text = ""
 
-    await callback.message.answer(
-        f"Чем заменить?\n\n{old_exercise}",
-        reply_markup=InlineKeyboardMarkup(inline_keyboard=keyboard)
-    )
+    for line in lines:
+        line = line.strip().lower().replace("х", "x")
 
-    await callback.answer()
+        if "x" not in line:
+            continue
 
+        weight, reps = line.split("x", 1)
 
-@dp.callback_query(lambda c: c.data.startswith("replace_today_btn|"))
-async def replace_today_btn(callback: CallbackQuery):
-    _, workout_num, old_exercise, new_exercise = callback.data.split("|", 3)
+        cursor.execute("""
+            INSERT INTO workouts (date, workout_num, exercise, weight, reps)
+            VALUES (?, ?, ?, ?, ?)
+        """, (today, workout_num, exercise, weight, reps))
 
-    cursor.execute("""
-        INSERT INTO temp_replacements
-        (workout_num, old_exercise, new_exercise)
-        VALUES (?, ?, ?)
-    """, (workout_num, old_exercise.lower(), new_exercise))
+        saved += 1
+        saved_text += f"{exercise} — {weight}×{reps}\n"
 
     db.commit()
 
-    await callback.message.answer(
-        f"✅ На сегодня заменено:\n\n"
-        f"{old_exercise} → {new_exercise}\n\n"
-        f"Отменить: /undo"
-    )
+    if saved == 0:
+        await message.answer("Не понял формат. Пиши так: 60x10")
+        return
 
-    await callback.answer()
+    del active_exercise[user_id]
+
+    await message.answer(
+        f"✅ Сохранено записей: {saved}\n\n"
+        f"{saved_text}"
+    )
 
 async def main():
     await dp.start_polling(bot)
