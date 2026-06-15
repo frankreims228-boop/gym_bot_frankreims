@@ -59,15 +59,6 @@ try:
     cursor.execute("ALTER TABLE workouts ADD COLUMN user_id INTEGER")
     db.commit()
 except sqlite3.OperationalError:
-MY_USER_ID = 745669840
-
-cursor.execute("""
-    UPDATE workouts
-    SET user_id = ?
-    WHERE user_id IS NULL
-""", (MY_USER_ID,))
-
-db.commit()
     pass
     cursor.execute("""
 CREATE TABLE IF NOT EXISTS reminder_log (
