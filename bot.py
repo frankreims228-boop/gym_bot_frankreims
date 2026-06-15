@@ -624,7 +624,6 @@ async def personal_records(message: Message):
 
         await asyncio.sleep(60 * 60 * 12)
 async def main():
-    asyncio.create_task(check_missed_workouts())
     await dp.start_polling(bot)
 
 
