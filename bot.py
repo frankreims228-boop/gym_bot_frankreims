@@ -31,7 +31,7 @@ def normalize_exercise(name):
     name = name.lower().strip().replace("ё", "е")
     return aliases.get(name, name.title())
 
-TOKEN = "8616065366:AAG4iuYv0-cytNUtOlu5WW-rw99lDZSvjbM"
+TOKEN = "8616065366:AAGjX0KElwTfl1d2PwyGtVxvmzcmvvRh50E"
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
