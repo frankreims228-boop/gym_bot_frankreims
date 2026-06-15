@@ -185,8 +185,8 @@ async def today(message: Message):
     today_date = datetime.now().strftime("%d.%m.%Y")
 
     cursor.execute(
-        "SELECT exercise, weight, reps FROM workouts WHERE date = ?",
-        (today_date,)
+        "SELECT exercise, weight, reps FROM workouts WHERE date = ? AND user_id = ?,
+        (today_date, message.from_user.id)
     )
     rows = cursor.fetchall()
 
@@ -435,7 +435,7 @@ async def delete_last(message: Message):
 
     cursor.execute(
         "DELETE FROM workouts WHERE id = ?",
-        (workout_id,)
+        (row[0],)
     )
     db.commit()
 
@@ -832,7 +832,7 @@ async def save_active_exercise(message: Message):
         cursor.execute("""
             INSERT INTO workouts (user_id, date, workout_num, exercise, weight, reps)
             VALUES (?, ?, ?, ?, ?, ?)
-        """, (user_id, today, workout_num, exercise, weight, reps))
+        """, (message.from_user.id, today, workout_num, exercise, weight, reps))
 
         saved += 1
         saved_text += f"{exercise} — {weight}×{reps}\n"
