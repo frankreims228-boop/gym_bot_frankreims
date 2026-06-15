@@ -38,6 +38,15 @@ CREATE TABLE IF NOT EXISTS reminder_log (
 """)
 db.commit()
 cursor.execute("""
+CREATE TABLE IF NOT EXISTS temp_replacements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workout_num TEXT,
+    old_exercise TEXT,
+    new_exercise TEXT
+)
+""")
+db.commit()
+cursor.execute("""
 CREATE TABLE IF NOT EXISTS replacements (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     workout_num TEXT,
@@ -511,7 +520,11 @@ async def finish_workout(message: Message):
         "ТУПО ДУШУ ТВОЮ ЦЕЛОВАЛ 😘\n"
         "КЛАСНО ПОТРЕНИЛ МАЛЬЧИК МОЙ 💪😎"
     )
-
+cursor.execute(
+    "DELETE FROM temp_replacements WHERE workout_num = ?",
+    (workout_num,)
+)
+db.commit()
     await message.answer(text)
 
 
@@ -624,6 +637,30 @@ async def commands(message: Message):
         "/pr — личные рекорды\n"
         "/commands — список команд\n"
     )
+
+@dp.message(Command("replace_today"))
+async def replace_today(message: Message):
+    try:
+        _, workout_num, old_exercise, new_exercise = message.text.split(" | ")
+
+        cursor.execute("""
+            INSERT INTO temp_replacements
+            (workout_num, old_exercise, new_exercise)
+            VALUES (?, ?, ?)
+        """, (workout_num, old_exercise, new_exercise))
+
+        db.commit()
+
+        await message.answer(
+            f"🔄 На сегодня заменено:\n"
+            f"{old_exercise} → {new_exercise}"
+        )
+
+    except:
+        await message.answer(
+            "Пример:\n"
+            "/replace_today 1 | Подъем гантелей на бицепс | Сгибания на блоке"
+        )
 async def main():
     await dp.start_polling(bot)
 
